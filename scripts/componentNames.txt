@@ -1,0 +1,51 @@
+﻿Blueprints:Inventories
+
+BulletproofGlass                   BulletproofGlass  
+SteelPlate                         SteelPlate
+ComputerComponent                  Computer    ===
+ConstructionComponent              Construction   =====
+Datapad
+DetectorComponent                  Detector ======
+Display Display
+GirderComponent                    Girder  =======
+InteriorPlate                      InteriorPlate
+LargeTube                          LargeTube
+MetalGrid                          MetalGrid
+MedicalComponent                   Medical  =========
+MotorComponent                     Motor  =======
+PowerCell                          PowerCell 
+RadioCommunicationComponent        RadioCommunication  =======
+SmallTube SmallTube
+SolarCell SolarCell
+Superconductor Superconductor
+ThrustComponent Thrust    =========
+
+Girder: 5224
+Computer: 5283
+SmallTube: 9413
+MetalGrid: 5277
+BulletproofGlass: 2664
+Display: 7428
+Reactor: 1760
+RadioCommunication: 200
+Canvas: 1881
+Medical: 3
+Detector: 384
+Motor: 798
+LargeTube: 3603
+SolarCell: 4016
+Superconductor: 105
+PowerCell: 2001
+Thrust: 941
+Construction: 2259
+InteriorPlate: 35780
+SteelPlate: 14139
+GravityGenerator: 24
+
+ComputerComponent                  Computer    ===
+ConstructionComponent              Construction   =====
+DetectorComponent                  Detector ======
+GirderComponent                    Girder  =======
+MedicalComponent                   Medical  =========
+MotorComponent                     Motor  =======
+RadioCommunicationComponent        RadioCommunication  =======
