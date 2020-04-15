@@ -116,15 +116,12 @@
         </Reference>
     </ItemGroup>
     <ItemGroup>
-        <Compile Include="Base - Copy.cs" />
         <Compile Include="Base.cs" />
-        <Compile Include="BuildingAutomation - Debug.cs" />
         <Compile Include="BuildingAutomation.cs" />
-        <Compile Include="Program - Original.cs" />
-        <Compile Include="Program - Ship Power Monitor.cs" />
-        <Compile Include="Program-RayCastTest.cs" />
-        <Compile Include="Program.cs" />
+        <Compile Include="PowerMonitor.cs" />
         <Compile Include="Properties\AssemblyInfo.cs" />
+        <Compile Include="SpaceLyfe.cs" />
+        <Compile Include="StopShipAtRange.cs" />
         <Compile Include="Tribalsmash.cs" />
     </ItemGroup>
     <ItemGroup>

@@ -15,6 +15,10 @@ using VRageRender.Animations;
 namespace ClassLibrary2
 
 {
+    /**
+     * Uses camera and remote to engage dampers on a ship before it runs into something it's looking at.
+     * Good for long trips where you want to AFK while coasting without hitting shit. 
+     */
     public class ProgramRayCastTest : MyGridProgram
     {
         private IMyCameraBlock _camera1;

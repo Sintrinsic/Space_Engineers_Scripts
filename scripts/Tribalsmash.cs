@@ -8,6 +8,9 @@ using SpaceEngineers.Game.Weapons.Guns;
 
 namespace ClassLibrary2.bob
 {
+    /**
+     * lulz
+     */
     public class Program: MyGridProgram
     {
         // 0000

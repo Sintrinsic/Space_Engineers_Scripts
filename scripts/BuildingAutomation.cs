@@ -1,6 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using Microsoft.Xml.Serialization.GeneratedAssembly;
+using Sandbox.Game.Entities.Blocks;
+using Sandbox.Game.Entities.Cube;
 using Sandbox.ModAPI.Ingame;
 using VRage;
 using VRage.Game;
@@ -10,6 +13,9 @@ using VRage.Game.ModAPI.Ingame;
 namespace ClassLibrary2
 
 {
+    /**
+     * Shitty display of full-grid power stats. Useful for seeing current power, but really ugly and hard to read. 
+     */
     public class Program : MyGridProgram
     {
         private FixedSizedQueue<string> _logText;
@@ -20,33 +26,44 @@ namespace ClassLibrary2
         private Dictionary<string, string> inventoryStats;
         private string[] buildingItemTypes;
         List<MyInventoryItem> tempItemList;
-        private Dictionary<string, IMyTextPanel> inventoryDisplayMapping;
         private string[] toolTypes;
         private HashSet<string> unproducable;
-        private Dictionary<string, string> fuckingCompBlueprintStringMap;
+        private Dictionary<string, string> inventoryToBlueprintMap;
+        //private Dictionary<string, string> blueprintToInventoryMap;
         int targetItemCount = 1000;
-
-
+        private HashSet<string> bulkItems;
+        
         public Program()
         {
             Runtime.UpdateFrequency = UpdateFrequency.Update10;
 
-            _display1 = GridTerminalSystem.GetBlockWithName("display1") as IMyTextPanel;
-            _display2 = GridTerminalSystem.GetBlockWithName("display2") as IMyTextPanel;
-
-
+            _display1 = GridTerminalSystem.GetBlockWithName("display_debug") as IMyTextPanel;
+            _display2 = GridTerminalSystem.GetBlockWithName("display_debug2") as IMyTextPanel;
+            
             inventoryStats = new Dictionary<string, string>();
-            inventoryDisplayMapping = new Dictionary<string, IMyTextPanel>();
-            inventoryDisplayMapping["MyObjectBuilder_Ore"] =
-                GridTerminalSystem.GetBlockWithName("display_ore") as IMyTextPanel;
-            inventoryDisplayMapping["MyObjectBuilder_Ingot"] =
-                GridTerminalSystem.GetBlockWithName("display_ingot") as IMyTextPanel;
-            inventoryDisplayMapping["MyObjectBuilder_Component"] =
-                GridTerminalSystem.GetBlockWithName("display_comp") as IMyTextPanel;
             buildingItemTypes = new[] {"Ore", "Ingot", "Component"};
             toolTypes = new[] {"Weld", "Grind", "Drill", "Rifle"};
-            fuckingCompBlueprintStringMap = new Dictionary<string, string>();
-            fuckingCompBlueprintStringMap["Construction"] = "ConstComp";
+            inventoryToBlueprintMap = new Dictionary<string, string>();
+            inventoryToBlueprintMap["Computer"] = "ComputerComponent";
+            inventoryToBlueprintMap["Construction"] = "ConstructionComponent";
+            inventoryToBlueprintMap["Detector"] = "DetectorComponent";
+            inventoryToBlueprintMap["Girder"] = "GirderComponent";
+            inventoryToBlueprintMap["Medical"] = "MedicalComponent";
+            inventoryToBlueprintMap["Motor"] = "MotorComponent";
+            inventoryToBlueprintMap["RadioCommunication"] = "RadioCommunicationComponent";
+            inventoryToBlueprintMap["Thrust"] = "ThrustComponent";
+            inventoryToBlueprintMap["Reactor"] = "ReactorComponent";
+            inventoryToBlueprintMap["Reactor"] = "ReactorComponent";
+            inventoryToBlueprintMap["GravityGenerator"] = "GravityGeneratorComponent";
+            bulkItems = new HashSet<string>();
+            bulkItems.Add("SteelPlate");
+            bulkItems.Add("ConstructionComponent");
+            bulkItems.Add("InteriorPlate");
+            bulkItems.Add("ThrustComponent");
+            bulkItems.Add("BulletproofGlass");
+
+
+            //blueprintToInventoryMap = inventoryToBlueprintMap.ToDictionary(i => i.Value, i => i.Key);
 
             tempItemList = new List<MyInventoryItem>();
 
@@ -57,12 +74,23 @@ namespace ClassLibrary2
         void Main()
         {
             _tempText = "";
+            LogTemp("in main");
             try
             {
+                //Dictionary<string, Dictionary<string, MyFixedPoint>> items = GetAllBuildingItemsInShip();
+                //displayBuildingItems(items);
                 Dictionary<string, Dictionary<string, MyFixedPoint>> items = GetAllBuildingItemsInShip();
-                displayBuildingItems(items);
                 Dictionary<string, MyFixedPoint> queue = getBuildingQueue();
                 buildNeededItems(items["MyObjectBuilder_Component"], queue);
+                LogTemp("Queue:");
+                foreach (KeyValuePair<string, MyFixedPoint> item in queue)
+                {
+                    LogTemp(item.Key+": "+item.Value.RawValue/1000000f);
+                }
+
+                string bob = String.Concat(tempItemList.ConvertAll(item => item.Amount));
+
+                //buildNeededItems(items["MyObjectBuilder_Component"], queue);
             }
             catch (Exception e)
             {
@@ -152,16 +180,31 @@ namespace ClassLibrary2
 
             foreach (KeyValuePair<string, MyFixedPoint> item in items)
             {
-                double itemcount = item.Value.RawValue / 1000000f;
-                if (queue.ContainsKey(item.Key))
+                string queueKey = item.Key;
+                if (queueKey.Equals("Datapad") || queueKey.Equals("Canvas"))
                 {
-                    LogPerm(item.Key + "  in queue");
-                    itemcount += queue[item.Key].RawValue / 1000000f;
+                    continue;
+                }
+                if (inventoryToBlueprintMap.ContainsKey(queueKey))
+                {
+                    queueKey = inventoryToBlueprintMap[queueKey];
+                }
+                double itemcount = item.Value.RawValue / 1000000f;
+                if (queue.ContainsKey(queueKey))
+                {
+                    //LogPerm(queueKey + "  in queue");
+                    itemcount += queue[queueKey].RawValue / 1000000f;
                 }
 
-                if (itemcount < targetItemCount)
+                int toCreate = targetItemCount;
+                if (bulkItems.Contains(queueKey))
                 {
-                    addToBuildingQueue(item.Key, targetItemCount - itemcount);
+                    toCreate = 5000;
+                }
+                if (itemcount < toCreate)
+                {
+                    LogPerm("Item less than 2k"+ queueKey +": "+itemcount);
+                    addToBuildingQueue(queueKey, toCreate - itemcount);
                 }
             }
 
@@ -170,8 +213,8 @@ namespace ClassLibrary2
             {
                 unpro += unp + "\n";
             }
-            
-            LogPerm(unpro);
+            LogTemp("unproducable:");
+            LogTemp(unpro);
         }
 
         public void addToBuildingQueue(string type, double quantity)
@@ -181,6 +224,10 @@ namespace ClassLibrary2
             double leftover = quantity % assemblers.Count;
             MyDefinitionId itemType = MyDefinitionId.Parse("MyObjectBuilder_BlueprintDefinition/" + type);
             //LogPerm("successfully got def for "+itemType.SubtypeId);
+            if (quantPerAssembler < 1)
+            {
+                return;
+            }
             foreach (IMyAssembler assembler in assemblers)
             {
                 try
@@ -194,7 +241,8 @@ namespace ClassLibrary2
                 }
 
                 //assembler.InsertQueueItem(0, itemType, quantPerAssembler);
-                assembler.AddQueueItem(itemType, quantPerAssembler);
+                assembler.AddQueueItem(itemType, quantPerAssembler + leftover);
+                leftover = 0;
             }
         }
 
@@ -215,7 +263,7 @@ namespace ClassLibrary2
                         continue;
                     }
 
-                    if (!quantities.ContainsKey(item.ItemId.ToString()))
+                    if (!quantities.ContainsKey(itemId))
                     {
                         quantities[itemId] = item.Amount;
                     }
@@ -228,21 +276,7 @@ namespace ClassLibrary2
             return quantities;
         }
 
-        public void displayBuildingItems(Dictionary<string, Dictionary<string, MyFixedPoint>> itemList)
-        {
-            foreach (KeyValuePair<string, Dictionary<String, MyFixedPoint>> category in itemList)
-            {
-                inventoryStats[category.Key] = "";
-                LogTemp(category.Key + ":");
-                foreach (KeyValuePair<string, MyFixedPoint> item in category.Value)
-                {
-                    double itemQuantity = Math.Round(item.Value.RawValue / 1000000f, 2);
-                    inventoryStats[category.Key] += item.Key + ": " + itemQuantity + "\n";
-                }
 
-                inventoryDisplayMapping[category.Key].WriteText(inventoryStats[category.Key]);
-            }
-        }
 
         /**
          * Returns a list of functional (fully assembled and not below hack line) blocks of a given type.

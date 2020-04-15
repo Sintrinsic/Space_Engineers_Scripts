@@ -9,6 +9,7 @@ using Sandbox.ModAPI.Ingame;
 using Sandbox.ModAPI.Interfaces;
 using SpaceEngineers.Game.Entities.Blocks;
 using SpaceEngineers.Game.ModAPI;
+using VRage.Game;
 using VRageRender.Animations;
 
 namespace ClassLibrary2
@@ -16,31 +17,19 @@ namespace ClassLibrary2
 {
     public class Program : MyGridProgram
     {
-        
-        public int timer = 0;
-        public bool smashed = false;
-        public bool shouldsmash = false;
-        public bool ready = true;
-        public float originalGravity;
-        public IMyGravityGenerator gravGen;
-        public IMySensorBlock sensor;
-        public int counter = 0;
-        
+        // Update these display names to match the LCDs you want to display your temp/perm log output on. 
+        private string tempDebugDisplayName = "display1";
+        private string permDebugDisplayName = "display2";
         private FixedSizedQueue<string> _logText;
         private string _tempText;
-        private IMyTextPanel _display1;
-        private IMyTextPanel _display2;
+        private IMyTextPanel tempDebugDisplay;
+        private IMyTextPanel permDebugDisplay;
 
         public Program()
         {
             Runtime.UpdateFrequency = UpdateFrequency.Update10;
-            _display1 = GridTerminalSystem.GetBlockWithName("display1") as IMyTextPanel;
-            _display2 = GridTerminalSystem.GetBlockWithName("display2") as IMyTextPanel;
-            sensor = GridTerminalSystem.GetBlockWithName("sensor1") as IMySensorBlock;
-            List<IMyGravityGenerator> gravity = new List<IMyGravityGenerator>();
-            GridTerminalSystem.GetBlocksOfType<IMyGravityGenerator>(gravity);
-            gravGen = gravity[0];
-            
+            tempDebugDisplay = GridTerminalSystem.GetBlockWithName("display1") as IMyTextPanel;
+            permDebugDisplay = GridTerminalSystem.GetBlockWithName("display2") as IMyTextPanel;
             _logText = new FixedSizedQueue<string>(15);
         }
 
@@ -49,9 +38,6 @@ namespace ClassLibrary2
             _tempText = "";
             try
             {
-                LogPerm("HolyShit");
-                tick();
-                LogPerm("Aftertick");
             }
             catch (Exception e)
             {
@@ -59,61 +45,20 @@ namespace ClassLibrary2
                 LogPerm(e.StackTrace);
             }
 
-            counter++;
-            LogPerm(counter.ToString());
             WriteDisplayText();
         }
         
-        
-        void tick()
+        /**
+         * Get all the functional blocks of the given type in the same grid as the programmable block running this.
+         * By default, only returns blocks on the same grid. If thisGridOnly is set to false, returns subgrids as well.
+         * "Functional" blocks are all those which are welded above the "functional" mark. 
+         */
+        private List<T> GetFunctionalBlocksOfType<T>(bool thisGridOnly = true) where T : class, IMyTerminalBlock
         {
-            string PlayerName = "";
-            if (!sensor.LastDetectedEntity.IsEmpty())
-            {
-                PlayerName = sensor.LastDetectedEntity.Name;
-            }
-            LogPerm("intick");
-            if (!ready && timer++ > 100)
-            {
-                LogPerm("Resetting");
-                ready = true;
-                smashed = false;
-                shouldsmash = false;
-                timer = 0;
-            }
-            LogPerm("Checking for people");
-            if (PlayerName.Equals("sintrinsic") && !shouldsmash && !smashed && ready) 
-            {
-                LogPerm("Detected and should mash");
-                shouldsmash = true;
-                gravGen.GravityAcceleration = -9.5f;
-            }
-            
-            LogPerm("Waiting to smash");
-            if (shouldsmash && !smashed && ready)
-            {
-                LogPerm("About to smash");
-                if (timer++ > 7)
-                {
-                    gravGen.GravityAcceleration = 9.5f;
-                    timer = 0;
-                    smashed = true;
-                }
-            }
-
-            LogPerm("Waiting to reset");
-            if (smashed && ready && timer++ > 20)
-            {
-                LogPerm("Resetting");
-                gravGen.GravityAcceleration = originalGravity;
-                ready = false;
-                timer = 0;
-            }
-            LogTemp("Playername: "+PlayerName);
-            LogTemp("TickTimer: "+timer.ToString());
-            LogTemp("ShouldSmash "+shouldsmash.ToString());
-            LogTemp("Smashed "+smashed.ToString());
-            LogTemp("Ready "+ready.ToString());
+            List<T> blockList = new List<T>();
+            GridTerminalSystem.GetBlocksOfType(blockList);
+            return thisGridOnly ? blockList.FindAll(block => block.IsSameConstructAs(Me) && block.IsFunctional)
+                : blockList;
         }
 
         /**
@@ -123,14 +68,21 @@ namespace ClassLibrary2
          */
         void WriteDisplayText()
         {
-            _display1.WriteText(_tempText);
+            if (tempDebugDisplay != null)
+            {
+                tempDebugDisplay.WriteText(_tempText);
+            }
+
             string logString = "";
             foreach (string line in _logText.ToArray())
             {
                 logString += line + "\n";
             }
 
-            _display2.WriteText(logString);
+            if (permDebugDisplay != null)
+            {
+                permDebugDisplay.WriteText(logString);
+            }
         }
 
         /**
@@ -152,8 +104,6 @@ namespace ClassLibrary2
         public void Save()
         {
         }
-
-
         
         /**
          * Just a queue wrapper that keeps the length at the number of lines on my screen. 
