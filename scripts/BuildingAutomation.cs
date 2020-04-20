@@ -32,6 +32,8 @@ namespace ClassLibrary2
         //private Dictionary<string, string> blueprintToInventoryMap;
         int targetItemCount = 1000;
         private HashSet<string> bulkItems;
+        private Dictionary<string, IMyTextPanel> inventoryDisplayMapping;
+
         
         public Program()
         {
@@ -61,8 +63,11 @@ namespace ClassLibrary2
             bulkItems.Add("InteriorPlate");
             bulkItems.Add("ThrustComponent");
             bulkItems.Add("BulletproofGlass");
+            inventoryDisplayMapping = new Dictionary<string, IMyTextPanel>();
 
-
+            inventoryDisplayMapping["MyObjectBuilder_Ore"] = GridTerminalSystem.GetBlockWithName("display_ore") as IMyTextPanel;
+            inventoryDisplayMapping["MyObjectBuilder_Ingot"] =GridTerminalSystem.GetBlockWithName("display_ingot") as IMyTextPanel;
+            inventoryDisplayMapping["MyObjectBuilder_Component"] =GridTerminalSystem.GetBlockWithName("display_comp") as IMyTextPanel;
             //blueprintToInventoryMap = inventoryToBlueprintMap.ToDictionary(i => i.Value, i => i.Key);
 
             tempItemList = new List<MyInventoryItem>();
@@ -82,6 +87,7 @@ namespace ClassLibrary2
                 Dictionary<string, Dictionary<string, MyFixedPoint>> items = GetAllBuildingItemsInShip();
                 Dictionary<string, MyFixedPoint> queue = getBuildingQueue();
                 buildNeededItems(items["MyObjectBuilder_Component"], queue);
+                displayBuildingItems(items);
                 LogTemp("Queue:");
                 foreach (KeyValuePair<string, MyFixedPoint> item in queue)
                 {
@@ -276,7 +282,21 @@ namespace ClassLibrary2
             return quantities;
         }
 
+        public void displayBuildingItems(Dictionary<string, Dictionary<string,MyFixedPoint>> itemList)
+        {
+            foreach (KeyValuePair<string, Dictionary<String,MyFixedPoint>> category in itemList)
+            {
+                inventoryStats[category.Key] = "";
+                LogTemp(category.Key +":");
+                foreach (KeyValuePair<string, MyFixedPoint> item in category.Value)
+                {
+                    double itemQuantity = Math.Round(item.Value.RawValue / 1000000f, 2);
+                    inventoryStats[category.Key] += item.Key +": "+ itemQuantity + "\n";
+                }
 
+                inventoryDisplayMapping[category.Key].WriteText(inventoryStats[category.Key]);
+            }
+        }
 
         /**
          * Returns a list of functional (fully assembled and not below hack line) blocks of a given type.
