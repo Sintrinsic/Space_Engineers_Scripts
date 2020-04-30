@@ -120,6 +120,7 @@
         <Compile Include="BuildingAutomation.cs" />
         <Compile Include="PowerMonitor.cs" />
         <Compile Include="Properties\AssemblyInfo.cs" />
+        <Compile Include="Rangefinder.cs" />
         <Compile Include="SpaceLyfe.cs" />
         <Compile Include="StopShipAtRange.cs" />
         <Compile Include="Tribalsmash.cs" />

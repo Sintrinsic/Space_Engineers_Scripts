@@ -2,44 +2,67 @@
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text.RegularExpressions;
+using System.Xml.Schema;
 using ParallelTasks;
+using Sandbox.Definitions;
 using Sandbox.Game.Entities;
 using Sandbox.Game.Entities.Blocks;
 using Sandbox.ModAPI.Ingame;
 using Sandbox.ModAPI.Interfaces;
 using SpaceEngineers.Game.Entities.Blocks;
 using SpaceEngineers.Game.ModAPI;
+using VRage;
+using VRage.Game;
+using VRage.Game.ModAPI.Ingame;
+using VRage.ObjectBuilders;
 using VRageRender.Animations;
+using IMyInventory = VRage.Game.ModAPI.Ingame.IMyInventory;
+using IMyInventoryItem = VRage.Game.ModAPI.IMyInventoryItem;
 
 namespace ClassLibrary2
 
 {
-    public class ProgramMyShipPower : MyGridProgram
+    public class Program : MyGridProgram
     {
         private FixedSizedQueue<string> _logText;
         private string _tempText;
-        private IMyTextPanel _display1;
-        private IMyTextPanel _display2;
-        private IMyPowerProducer _solar1;
-        private IMyPowerProducer _solar2;
-        private IMyPowerProducer _solar3;
-        private IMyPowerProducer _solar4;
+        private IMyTextPanel _display_temp;
+        private IMyTextPanel _display_perm;
+        private IMyTextPanel _displayPower;
+        
+        private Dictionary<string, FixedSizedQueue<double>> batteryInfo;
 
-        public ProgramMyShipPower()
+        public Program()
         {
             Runtime.UpdateFrequency = UpdateFrequency.Update10;
-            _display1 = GridTerminalSystem.GetBlockWithName("display1") as IMyTextPanel;
-            _display2 = GridTerminalSystem.GetBlockWithName("display2") as IMyTextPanel;
+            _display_temp = GridTerminalSystem.GetBlockWithName("display_power_temp") as IMyTextPanel;
+            _display_perm = GridTerminalSystem.GetBlockWithName("display_power_perm") as IMyTextPanel;
+            _displayPower = GridTerminalSystem.GetBlockWithName("display_power_output") as IMyTextPanel;
+
+            batteryInfo = new Dictionary<string, FixedSizedQueue<double>>();
+            batteryInfo["currentPower"] = new FixedSizedQueue<double>(5);
+            batteryInfo["maxPower"] = new FixedSizedQueue<double>(1);
+            batteryInfo["currentInput"] = new FixedSizedQueue<double>(20);
+            batteryInfo["currentOutput"] = new FixedSizedQueue<double>(50);
+            batteryInfo["currentNet"] = new FixedSizedQueue<double>(50);
+            
             _logText = new FixedSizedQueue<string>(15);
         }
 
         void Main()
         {
             _tempText = "";
-            if (_solar1.Enabled)
+            try
             {
-                RotateStaionToSun();
+                displayPowerStats();
             }
+            catch (Exception e)
+            {
+                LogPerm(e.Message);
+                LogPerm(e.StackTrace);
+            }
+
             WriteDisplayText();
         }
 
@@ -50,14 +73,14 @@ namespace ClassLibrary2
          */
         void WriteDisplayText()
         {
-            _display1.WriteText(_tempText);
+            _display_temp.WriteText(_tempText);
             string logString = "";
             foreach (string line in _logText.ToArray())
             {
                 logString += line + "\n";
             }
 
-            _display2.WriteText(logString);
+            _display_perm.WriteText(logString);
         }
 
         /**
@@ -80,47 +103,59 @@ namespace ClassLibrary2
         {
         }
 
-        public void RotateStaionToSun()
+        public void displayPowerStats()
         {
-            float[] solarPanelArray =
-                {_solar1.CurrentOutput, _solar2.CurrentOutput, _solar3.CurrentOutput, _solar4.CurrentOutput};
-            float solarVarianceSum = solarPanelArray.Sum();
-            string powerOutput = "S1: " + _solar1.CurrentOutput.ToString() + "\n" +
-                                 "S2: " + _solar2.CurrentOutput.ToString() + "\n" +
-                                 "S3: " + _solar3.CurrentOutput.ToString() + "\n" +
-                                 "S4: " + _solar4.CurrentOutput.ToString() + "\n" +
-                                 "Sum: " + solarVarianceSum.ToString();
-            LogTemp(powerOutput);
-
-            // Resetting gyro to 0, as pitch changes persist once updated. 
-            bool rotate = false;
-            IMyGyro gyro = GridTerminalSystem.GetBlockWithName("g1") as IMyGyro;
-            gyro.Yaw = 0;
-            gyro.Pitch = 0;
-            gyro.Roll = 0;
-
-            // If none of the test panels can see the sun, roll a bunch until they can. 
-            if (solarPanelArray.Sum() == 0.00)
+            try
             {
-                gyro.Roll = .1f;
-                gyro.Yaw = .05f;
-                rotate = true;
+                double currentInput = 0;
+                double currentOutput = 0;
+                double currentCharge = 0;
+                double maxPower = 0;
+                List<IMyBatteryBlock> batteries = GetFunctionalBlocksOfType<IMyBatteryBlock>();
+                foreach (IMyBatteryBlock battery in batteries)
+                {
+                    currentInput += battery.CurrentInput;
+                    currentOutput += battery.CurrentOutput;
+                    currentCharge += battery.CurrentStoredPower;
+                    maxPower += battery.MaxStoredPower;
+                }
+
+                batteryInfo["currentPower"].Insert(currentCharge);
+                batteryInfo["maxPower"].Insert(maxPower);
+                batteryInfo["currentInput"].Insert(currentInput);
+                batteryInfo["currentOutput"].Insert(currentOutput);
+                batteryInfo["currentNet"].Insert(currentInput - currentOutput);
+
+                Dictionary<string, double> sums = new Dictionary<string, double>();
+                double percent = Math.Round(currentCharge / maxPower * 100, 2);
+                string powerOutput = "Battery info: " + percent + "%\n";
+                foreach (KeyValuePair<string, FixedSizedQueue<double>> item in batteryInfo)
+                {
+                    double[] itemValues = item.Value.ToArray();
+                    double sum = itemValues.Sum() / itemValues.Length;
+                    sums[item.Key] = sum;
+                    powerOutput += item.Key + ":" + Math.Round(sum, 2) + "\n";
+                }
+                
+                _displayPower.WriteText(powerOutput);
             }
-
-            // The rotation values specific to my station and solar test setup. 
-            float roll = solarPanelArray[0] - solarPanelArray[2]; // 2 > 0, -Roll
-            float yaw = solarPanelArray[3] - solarPanelArray[1]; // 1 > 3, -Yaw
-
-            // If the panels are out of alignment with the sun, within a threshold, fix it. 
-            if (Math.Abs(roll) > .01 || Math.Abs(yaw) > .01)
+            catch (Exception e)
             {
-                gyro.Yaw = yaw;
-                gyro.Roll = roll;
-                LogPerm("Adjusting: Roll:" + roll.ToString() + " Yaw:" + yaw.ToString());
-                rotate = true;
+                LogPerm(e.Message);
+                LogPerm(e.StackTrace);
             }
+        }
 
-            gyro.GyroOverride = rotate;
+        /**
+         * Returns a list of functional (fully assembled and not below hack line) blocks of a given type.
+         * Type must be a descendent of IMyTerminalBlock. 
+         */
+        private List<T> GetFunctionalBlocksOfType<T>(bool thisGridOnly = true) where T : class, IMyTerminalBlock
+        {
+            List<T> blockList = new List<T>();
+            GridTerminalSystem.GetBlocksOfType(blockList);
+            return thisGridOnly ? blockList.FindAll(block => block.IsSameConstructAs(Me) && 
+                                                             block.IsFunctional) : blockList;
         }
         
         /**

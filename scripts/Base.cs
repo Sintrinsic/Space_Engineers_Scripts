@@ -18,7 +18,7 @@ namespace ClassLibrary2
     public class Program : MyGridProgram
     {
         // Update these display names to match the LCDs you want to display your temp/perm log output on. 
-        private string tempDebugDisplayName = "display1";
+        private string tempDebugDisplayName = "display_debug_temp";
         private string permDebugDisplayName = "display2";
         private FixedSizedQueue<string> _logText;
         private string _tempText;

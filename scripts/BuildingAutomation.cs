@@ -20,8 +20,7 @@ namespace ClassLibrary2
     {
         private FixedSizedQueue<string> _logText;
         private string _tempText;
-        private IMyTextPanel _display1;
-        private IMyTextPanel _display2;
+
 
         private Dictionary<string, string> inventoryStats;
         private string[] buildingItemTypes;
@@ -30,17 +29,47 @@ namespace ClassLibrary2
         private HashSet<string> unproducable;
         private Dictionary<string, string> inventoryToBlueprintMap;
         //private Dictionary<string, string> blueprintToInventoryMap;
-        int targetItemCount = 1000;
+        private int targetItemCount;
+        private int bulkItemCount; 
         private HashSet<string> bulkItems;
+        
+        // Mandatory displays
         private Dictionary<string, IMyTextPanel> inventoryDisplayMapping;
-
+        private IMyTextPanel _display_temp;
+        private IMyTextPanel _display_perm;
         
         public Program()
         {
-            Runtime.UpdateFrequency = UpdateFrequency.Update10;
+            Runtime.UpdateFrequency = UpdateFrequency.Update100;
 
-            _display1 = GridTerminalSystem.GetBlockWithName("display_debug") as IMyTextPanel;
-            _display2 = GridTerminalSystem.GetBlockWithName("display_debug2") as IMyTextPanel;
+            inventoryDisplayMapping = new Dictionary<string, IMyTextPanel>();
+            // ------------------------------ Begin things you can configure --------------------------
+            /** These are the displays you need to run this. They're all mandatory and the script will fail if they don't exist. 
+                Create the 5 displays, name them to match the strings below, and set them to display text/images BEFORE 
+                running the script. If you read this after you ran the script, just do it and re-compile/rerun. 
+            */
+            inventoryDisplayMapping["MyObjectBuilder_Ore"] = GridTerminalSystem.GetBlockWithName("display_ore") as IMyTextPanel;
+            inventoryDisplayMapping["MyObjectBuilder_Ingot"] =GridTerminalSystem.GetBlockWithName("display_ingot") as IMyTextPanel;
+            inventoryDisplayMapping["MyObjectBuilder_Component"] =GridTerminalSystem.GetBlockWithName("display_comp") as IMyTextPanel;
+            _display_temp = GridTerminalSystem.GetBlockWithName("display_debug_temp") as IMyTextPanel;
+            _display_perm = GridTerminalSystem.GetBlockWithName("display_debug_perm") as IMyTextPanel;
+            
+            // NOTE: For the system to create these items, you must have at least ONE of it already in your inventory. 
+            // Also NOTE: This script only takes into account the grid the prog block is part of, not subgrids. 
+            // The amount of each non-bulk item you want to have on hand at all times 
+            targetItemCount = 10000;
+            // The amount of each bulk item you want to have on hand at all times (list of bulk items below)
+            bulkItemCount = 20000;
+            
+            // List of items to create in bulk. You can add to or remove from this list, but be sure you're using the
+            // name for the item that the code uses (Not always the same as in-game text). 
+            bulkItems = new HashSet<string>();
+            bulkItems.Add("SteelPlate");
+            bulkItems.Add("ConstructionComponent");
+            bulkItems.Add("InteriorPlate");
+            bulkItems.Add("ThrustComponent");
+            bulkItems.Add("BulletproofGlass");
+            // --------------------------------- End things you can configure ------------------------------------
             
             inventoryStats = new Dictionary<string, string>();
             buildingItemTypes = new[] {"Ore", "Ingot", "Component"};
@@ -57,21 +86,10 @@ namespace ClassLibrary2
             inventoryToBlueprintMap["Reactor"] = "ReactorComponent";
             inventoryToBlueprintMap["Reactor"] = "ReactorComponent";
             inventoryToBlueprintMap["GravityGenerator"] = "GravityGeneratorComponent";
-            bulkItems = new HashSet<string>();
-            bulkItems.Add("SteelPlate");
-            bulkItems.Add("ConstructionComponent");
-            bulkItems.Add("InteriorPlate");
-            bulkItems.Add("ThrustComponent");
-            bulkItems.Add("BulletproofGlass");
-            inventoryDisplayMapping = new Dictionary<string, IMyTextPanel>();
 
-            inventoryDisplayMapping["MyObjectBuilder_Ore"] = GridTerminalSystem.GetBlockWithName("display_ore") as IMyTextPanel;
-            inventoryDisplayMapping["MyObjectBuilder_Ingot"] =GridTerminalSystem.GetBlockWithName("display_ingot") as IMyTextPanel;
-            inventoryDisplayMapping["MyObjectBuilder_Component"] =GridTerminalSystem.GetBlockWithName("display_comp") as IMyTextPanel;
+  
             //blueprintToInventoryMap = inventoryToBlueprintMap.ToDictionary(i => i.Value, i => i.Key);
-
             tempItemList = new List<MyInventoryItem>();
-
             _logText = new FixedSizedQueue<string>(15);
             unproducable = new HashSet<string>();
         }
@@ -114,14 +132,14 @@ namespace ClassLibrary2
          */
         void WriteDisplayText()
         {
-            _display1.WriteText(_tempText);
+            _display_temp.WriteText(_tempText);
             string logString = "";
             foreach (string line in _logText.ToArray())
             {
                 logString += line + "\n";
             }
 
-            _display2.WriteText(logString);
+            _display_perm.WriteText(logString);
         }
 
         /**
@@ -205,7 +223,7 @@ namespace ClassLibrary2
                 int toCreate = targetItemCount;
                 if (bulkItems.Contains(queueKey))
                 {
-                    toCreate = 5000;
+                    toCreate = 20000;
                 }
                 if (itemcount < toCreate)
                 {
